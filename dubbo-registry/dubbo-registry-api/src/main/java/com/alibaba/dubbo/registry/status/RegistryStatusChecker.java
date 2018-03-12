@@ -26,16 +26,20 @@ import java.util.Collection;
 
 /**
  * RegistryStatusChecker
+ * 注册服务状态检查
  *
  */
 @Activate
 public class RegistryStatusChecker implements StatusChecker {
 
     public Status check() {
+        //如果没有注册服务，是UNKNOWN状态而不是失败。
         Collection<Registry> regsitries = AbstractRegistryFactory.getRegistries();
         if (regsitries == null || regsitries.isEmpty()) {
             return new Status(Status.Level.UNKNOWN);
         }
+
+        //逐个注册服务打印一下地址和OK状态
         Status.Level level = Status.Level.OK;
         StringBuilder buf = new StringBuilder();
         for (Registry registry : regsitries) {

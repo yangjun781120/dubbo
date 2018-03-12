@@ -123,6 +123,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
 
     protected void doSubscribe(final URL url, final NotifyListener listener) {
         try {
+            //如果provider的service的接口配置的是“*”
             if (Constants.ANY_VALUE.equals(url.getServiceInterface())) {
                 String root = toRootPath();
                 ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
@@ -157,8 +158,12 @@ public class ZookeeperRegistry extends FailbackRegistry {
                     }
                 }
             } else {
-                List<URL> urls = new ArrayList<URL>();
+                //如果serviceInterface不是“*”则创建Zookeeper客户端索取服务列表，并通知（notify）消费者（consumer）这些服务可以用了
+                List<URL> urls = new ArrayList<URL>();//服务提供方url列表
+                //获取类似于http：//xxx.xxx.xxx.xxx/context/com.service.xxxService/consumer的地址
+                //http：//xxx.xxx.xxx.xxx/context/com.service.xxxService/provider
                 for (String path : toCategoriesPath(url)) {
+                    //获取例如com.service.xxxService对应的NotifyListener map
                     ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
                     if (listeners == null) {
                         zkListeners.putIfAbsent(url, new ConcurrentHashMap<NotifyListener, ChildListener>());

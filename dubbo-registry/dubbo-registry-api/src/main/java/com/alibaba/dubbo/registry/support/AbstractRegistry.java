@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * AbstractRegistry. (SPI, Prototype, ThreadSafe)
+ * 抽象注册服务，要求是线程安全，作为SPI接口，原型
  *
  */
 public abstract class AbstractRegistry implements Registry {
@@ -61,16 +62,24 @@ public abstract class AbstractRegistry implements Registry {
     private static final String URL_SPLIT = "\\s+";
     // Log output
     protected final Logger logger = LoggerFactory.getLogger(getClass());
+
     // Local disk cache, where the special key value.registies records the list of registry centers, and the others are the list of notified service providers
+    //本地cache映射的properties对象，根据版本刷新整体内容。
     private final Properties properties = new Properties();
     // File cache timing writing
     private final ExecutorService registryCacheExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory("DubboSaveRegistryCache", true));
     // Is it synchronized to save the file
     private final boolean syncSaveFile;
+    //最后的更新版本号
     private final AtomicLong lastCacheChanged = new AtomicLong();
+    //已经注册的url集合
     private final Set<URL> registered = new ConcurrentHashSet<URL>();
+    //已经注册url和监听者集合映射
     private final ConcurrentMap<URL, Set<NotifyListener>> subscribed = new ConcurrentHashMap<URL, Set<NotifyListener>>();
+    //已经注册url和 url与备份
     private final ConcurrentMap<URL, Map<String, List<URL>>> notified = new ConcurrentHashMap<URL, Map<String, List<URL>>>();
+
+    //注册中心地址
     private URL registryUrl;
     // Local disk cache file
     private File file;
@@ -91,7 +100,7 @@ public abstract class AbstractRegistry implements Registry {
         }
         this.file = file;
         loadProperties();
-        notify(url.getBackupUrls());
+        notify(url.getBackupUrls());//通知备份urls
     }
 
     protected static List<URL> filterEmpty(URL url, List<URL> urls) {
@@ -212,6 +221,7 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    //从缓存文件取url列表
     public List<URL> getCacheUrls(URL url) {
         for (Map.Entry<Object, Object> entry : properties.entrySet()) {
             String key = (String) entry.getKey();
@@ -230,8 +240,11 @@ public abstract class AbstractRegistry implements Registry {
         return null;
     }
 
+    //查询服务url对应要通知的url列表
     public List<URL> lookup(URL url) {
         List<URL> result = new ArrayList<URL>();
+
+        //获取url对应要通知的所有urls
         Map<String, List<URL>> notifiedUrls = getNotified().get(url);
         if (notifiedUrls != null && notifiedUrls.size() > 0) {
             for (List<URL> urls : notifiedUrls.values()) {
@@ -248,6 +261,7 @@ public abstract class AbstractRegistry implements Registry {
                     reference.set(urls);
                 }
             };
+            //订阅服务url和监听
             subscribe(url, listener); // Subscribe logic guarantees the first notify to return
             List<URL> urls = reference.get();
             if (urls != null && !urls.isEmpty()) {
@@ -261,6 +275,7 @@ public abstract class AbstractRegistry implements Registry {
         return result;
     }
 
+    //注册服务
     public void register(URL url) {
         if (url == null) {
             throw new IllegalArgumentException("register url == null");
@@ -271,6 +286,7 @@ public abstract class AbstractRegistry implements Registry {
         registered.add(url);
     }
 
+    //取消注册服务
     public void unregister(URL url) {
         if (url == null) {
             throw new IllegalArgumentException("unregister url == null");
@@ -281,6 +297,7 @@ public abstract class AbstractRegistry implements Registry {
         registered.remove(url);
     }
 
+    //订阅url服务，并通知listner
     public void subscribe(URL url, NotifyListener listener) {
         if (url == null) {
             throw new IllegalArgumentException("subscribe url == null");
@@ -299,6 +316,7 @@ public abstract class AbstractRegistry implements Registry {
         listeners.add(listener);
     }
 
+    //取消订阅服务url
     public void unsubscribe(URL url, NotifyListener listener) {
         if (url == null) {
             throw new IllegalArgumentException("unsubscribe url == null");
@@ -315,6 +333,7 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    //从内存中的订阅者恢复
     protected void recover() throws Exception {
         // register
         Set<URL> recoverRegistered = new HashSet<URL>(getRegistered());
@@ -341,9 +360,10 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    //通知所有url对应的listeners
     protected void notify(List<URL> urls) {
         if (urls == null || urls.isEmpty()) return;
-
+        //获取订阅的listeners
         for (Map.Entry<URL, Set<NotifyListener>> entry : getSubscribed().entrySet()) {
             URL url = entry.getKey();
 
@@ -364,6 +384,12 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /**
+     *
+     * @param url 订阅url
+     * @param listener 监听者
+     * @param urls 被通知的订阅urls
+     */
     protected void notify(URL url, NotifyListener listener, List<URL> urls) {
         if (url == null) {
             throw new IllegalArgumentException("notify url == null");
@@ -408,6 +434,7 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    //保存服务id对应的url完整信息
     private void saveProperties(URL url) {
         if (file == null) {
             return;
@@ -442,10 +469,12 @@ public abstract class AbstractRegistry implements Registry {
         if (logger.isInfoEnabled()) {
             logger.info("Destroy registry:" + getUrl());
         }
+
+        //所有注册的服务url
         Set<URL> destroyRegistered = new HashSet<URL>(getRegistered());
         if (!destroyRegistered.isEmpty()) {
             for (URL url : new HashSet<URL>(getRegistered())) {
-                if (url.getParameter(Constants.DYNAMIC_KEY, true)) {
+                if (url.getParameter(Constants.DYNAMIC_KEY, true)) {//dynamic才需要删除
                     try {
                         unregister(url);
                         if (logger.isInfoEnabled()) {
@@ -457,6 +486,8 @@ public abstract class AbstractRegistry implements Registry {
                 }
             }
         }
+
+        //所有订阅的listeners
         Map<URL, Set<NotifyListener>> destroySubscribed = new HashMap<URL, Set<NotifyListener>>(getSubscribed());
         if (!destroySubscribed.isEmpty()) {
             for (Map.Entry<URL, Set<NotifyListener>> entry : destroySubscribed.entrySet()) {
