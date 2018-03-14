@@ -58,6 +58,7 @@ import static com.alibaba.dubbo.common.Constants.QOS_PORT;
 public class RegistryProtocol implements Protocol {
 
     private final static Logger logger = LoggerFactory.getLogger(RegistryProtocol.class);
+
     private static RegistryProtocol INSTANCE;
     private final Map<URL, NotifyListener> overrideListeners = new ConcurrentHashMap<URL, NotifyListener>();
     //To solve the problem of RMI repeated exposure port conflicts, the services that have been exposed are no longer exposed.

@@ -43,11 +43,12 @@ public interface Router extends Comparable<Router> {
     /**
      * route.
      *
-     * @param invokers
-     * @param url        refer url
-     * @param invocation
-     * @return routed invokers
-     * @throws RpcException
+     * @param invokers 调用者列表
+     * @param url        refer url 对应的服务地址，从消费者角度看
+     * @param invocation 调用信息
+     * @return routed invokers 返回调用者列表
+     * @throws RpcException 异常
+     *
      */
     <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException;
 
